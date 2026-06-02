@@ -1,11 +1,14 @@
 import type { APIRoute } from "astro";
-import { buildAnalysisReport } from "../../lib/report/buildReport";
-import { normalizeTargetUrl } from "../../lib/url";
-import { collectCssFromPage } from "../../lib/fetch/cssCollector";
-import { probeRenderedColorsWithTimeout } from "../../lib/renderProbe";
+import { handleAnalyzeRequest } from "../../lib/api/analyzeHandler";
+import { isVercelServerless } from "../../lib/runtime/deployment";
 
 export const prerender = false;
 
+export const config = {
+  maxDuration: 10,
+};
+
+/** Fallback local cuando no hay PUBLIC_ANALYZE_API_URL (dev). En Vercel sin analyzer: mensaje claro. */
 export const POST: APIRoute = async ({ request }) => {
   let payload: unknown;
   try {
@@ -17,69 +20,20 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  const rawUrl = typeof (payload as { url?: string })?.url === "string" ? payload.url.trim() : "";
-  const url = normalizeTargetUrl(rawUrl);
-  if (!url) {
+  if (isVercelServerless()) {
     return new Response(
       JSON.stringify({
-        error: "Missing or invalid URL",
-        details: "Use a valid domain like https://example.com (http/https).",
+        error: "Analyzer no configurado",
+        details:
+          "En Vercel define PUBLIC_ANALYZE_API_URL con la URL de tu servicio analyzer (Railway/Render). Ver README.",
       }),
-      {
-        status: 400,
-        headers: { "content-type": "application/json; charset=utf-8" },
-      },
+      { status: 503, headers: { "content-type": "application/json; charset=utf-8" } },
     );
   }
 
-  try {
-    const { css, html, variables, stylesheetCount } = await collectCssFromPage(url);
-
-    if (!css.trim() && !html.trim()) {
-      return new Response(
-        JSON.stringify({
-          error: "No content to analyze",
-          details: "The URL returned no HTML/CSS to inspect.",
-        }),
-        { status: 422, headers: { "content-type": "application/json; charset=utf-8" } },
-      );
-    }
-
-    const rendered = await probeRenderedColorsWithTimeout(url, 25_000);
-
-    const report = buildAnalysisReport(
-      url,
-      css,
-      stylesheetCount,
-      variables,
-      html,
-      rendered?.colors,
-      rendered?.bodyTextColors ?? rendered?.textColors,
-      rendered?.buttonTextColors,
-    );
-
-    if (rendered?.screenshotBase64) {
-      report.previewScreenshot = rendered.screenshotBase64;
-    }
-
-    return new Response(JSON.stringify(report), {
-      status: 200,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const isFetch =
-      /fetch failed|aborted|ENOTFOUND|ECONNREFUSED|certificate|timed out/i.test(message);
-
-    return new Response(
-      JSON.stringify({
-        error: isFetch ? "Could not fetch the URL" : "Failed to analyze URL",
-        details: message,
-      }),
-      {
-        status: isFetch ? 422 : 500,
-        headers: { "content-type": "application/json; charset=utf-8" },
-      },
-    );
-  }
+  const result = await handleAnalyzeRequest(payload);
+  return new Response(JSON.stringify(result.body), {
+    status: result.status,
+    headers: result.headers ?? { "content-type": "application/json; charset=utf-8" },
+  });
 };

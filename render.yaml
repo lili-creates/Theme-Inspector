@@ -1,0 +1,19 @@
+# https://render.com/docs/blueprint-spec
+# Servicio gratuito con Playwright (puede dormir tras inactividad).
+services:
+  - type: web
+    name: theme-inspector-analyzer
+    runtime: docker
+    dockerfilePath: ./analyzer/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PLAYWRIGHT_ENABLED
+        value: "true"
+      - key: PORT
+        value: "3001"
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: NODE_ENV
+        value: production

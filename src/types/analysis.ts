@@ -63,6 +63,8 @@ export type ThemeResult = {
   text_on_button: string | null;
   /** Alias de text_on_background (compatibilidad). */
   text_color: string | null;
+  /** true si Playwright aportó pesos de color del viewport. */
+  viewportSampled: boolean;
   /** Tokens CSS que declaran colores de marca (todos, con contexto). */
   brandTokens: DeclaredBrandToken[];
   /** Colores de marca visibles en la UI (prioridad jerárquica) */
@@ -86,8 +88,6 @@ export type CssStats = {
 export type AnalysisReport = {
   url: string;
   analyzedAt: string;
-  /** Captura JPEG (base64 sin prefijo data:) del viewport al analizar. */
-  previewScreenshot?: string;
   stats: CssStats;
   theme: ThemeResult;
   variables: CssVariable[];

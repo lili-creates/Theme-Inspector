@@ -1,3 +1,4 @@
+import { analyzeApiUrl } from "./apiBase";
 import { ensureUrlProtocol } from "../url";
 
 export type AnalyzeErrorBody = {
@@ -7,7 +8,7 @@ export type AnalyzeErrorBody = {
 
 export async function postAnalyze(rawUrl: string): Promise<Record<string, unknown>> {
   const url = ensureUrlProtocol(rawUrl.trim());
-  const res = await fetch("/api/analyze", {
+  const res = await fetch(analyzeApiUrl("/api/analyze"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ url }),

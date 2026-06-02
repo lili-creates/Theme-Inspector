@@ -1,0 +1,29 @@
+---
+import ShowcaseHeader from "./ShowcaseHeader.astro";
+import ShowcasePalette from "./ShowcasePalette.astro";
+
+type Props = {
+  hidden?: boolean;
+};
+
+const { hidden = true } = Astro.props;
+---
+
+<section
+  id="theme-showcase"
+  class:list={["showcase", hidden && "hidden"]}
+  aria-live="polite"
+>
+  <ShowcaseHeader />
+  <ShowcasePalette />
+</section>
+
+<script>
+  import { initShowcaseInteractions } from "../../scripts/showcaseInteractions";
+
+  initShowcaseInteractions();
+</script>
+
+<style lang="scss" is:global>
+  @import "./showcase.scss";
+</style>

@@ -229,6 +229,7 @@ import "../styles/main.scss";
       import { postAnalyze } from "../lib/client/analyzeClient";
       import { persistReportCache } from "../lib/client/sessionCache";
       import { ensureUrlProtocol } from "../lib/url";
+      import { isRawUrlInputAllowed } from "../lib/urlSafety";
 
       const form = document.getElementById("analyze-form");
       const input = document.getElementById("url");
@@ -247,9 +248,15 @@ import "../styles/main.scss";
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
 
-          const raw = typeof input?.value === "string" ? input.value.trim() : "";
+          const raw = input instanceof HTMLInputElement ? input.value.trim() : "";
           if (!raw) {
             window.alert("Introduce una URL válida antes de analizar.");
+            return;
+          }
+          if (!isRawUrlInputAllowed(raw)) {
+            window.alert(
+              "URL no válida. Usa https://dominio.com sin credenciales ni direcciones locales.",
+            );
             return;
           }
 

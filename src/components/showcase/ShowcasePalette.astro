@@ -1,0 +1,42 @@
+---
+import { HERO_SWATCHES, SURFACE_SWATCHES, TEXT_SWATCHES } from "./showcase-tokens";
+import ShowcaseSwatch from "./ShowcaseSwatch.astro";
+---
+
+<section class="palette" aria-labelledby="palette-title">
+  <header class="paletteIntro">
+    <h3 id="palette-title">Paleta extraída</h3>
+    <p>Colores inferidos del CSS y del viewport. Haz clic en cualquier muestra para copiar el valor.</p>
+  </header>
+
+  <div class="paletteGroup">
+    <h4 class="groupTitle">Roles principales</h4>
+    <div class="heroGrid">
+      {HERO_SWATCHES.map((swatch) => (
+        <ShowcaseSwatch {...swatch} />
+      ))}
+    </div>
+  </div>
+
+  <div class="paletteGroup">
+    <h4 class="groupTitle">Superficies</h4>
+    <p class="groupHint">Fondos y capas base detectados en el análisis.</p>
+    <div class="surfaceGrid">
+      {SURFACE_SWATCHES.map((swatch) => (
+        <ShowcaseSwatch {...swatch} />
+      ))}
+    </div>
+  </div>
+
+  <div class="paletteGroup">
+    <h4 class="groupTitle">Colores de texto</h4>
+    <p class="groupHint">Tipografía sobre fondos y en elementos interactivos.</p>
+    <div class="textGrid">
+      {TEXT_SWATCHES.map((swatch) => (
+        <ShowcaseSwatch {...swatch} />
+      ))}
+    </div>
+  </div>
+
+  <div class="toast" role="status" aria-live="polite"></div>
+</section>

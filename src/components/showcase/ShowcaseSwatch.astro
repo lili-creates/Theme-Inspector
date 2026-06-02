@@ -1,0 +1,28 @@
+---
+import type { ShowcaseSwatchDef } from "./showcase-tokens";
+
+type Props = ShowcaseSwatchDef;
+
+const { label, role, cssVar, presenceKey, variant } = Astro.props;
+const copyToken = `var(${cssVar})`;
+---
+
+<button
+  class:list={[
+    "swatch",
+    variant === "hero" && "swatch--hero",
+    variant === "surface" && "swatch--surface",
+    variant === "text" && "swatch--text",
+  ]}
+  type="button"
+  data-copy={copyToken}
+  data-presence={presenceKey}
+>
+  <span class="swatchColor" style={`background: var(${cssVar})`} aria-hidden="true"></span>
+  <span class="swatchBody">
+    <span class="swatchRole">{role}</span>
+    <span class="swatchLabel">{label}</span>
+    <span class="swatchHex" data-value={cssVar}>—</span>
+    <span class="swatchToken">{copyToken}</span>
+  </span>
+</button>

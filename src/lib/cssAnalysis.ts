@@ -8,4 +8,15 @@ export { extractAllCustomProperties, normalizeCssValue, countVariableUsage } fro
 export { categorizeVariable } from "./css/categorizeVariable";
 export { computeCssStats } from "./css/stats";
 export { analyzeThemeFromCss } from "./theme/analyzeTheme";
+export {
+  pickPrimaryColor,
+  pickSecondaryColor,
+  colorPrimaryScore,
+  colorVisualScore,
+  clusterByHue,
+  filterBrandRoleCandidates,
+  pickFamilyRepresentative,
+  isCssOnlyGhostColor,
+  structuralUiScore,
+} from "./theme/visualBrandRoles";
 export { buildAnalysisReport } from "./report/buildReport";

@@ -115,6 +115,9 @@ export function buildAnalysisReport(
   renderedSignals?: Record<string, number>,
   renderedTextSignals?: Record<string, number>,
   renderedButtonTextSignals?: Record<string, number>,
+  renderedBackgroundSignals?: Record<string, number>,
+  renderedButtonFillSignals?: Record<string, number>,
+  renderedHeadingTextSignals?: Record<string, number>,
 ): AnalysisReport {
   const theme = analyzeThemeFromCss(
     css,
@@ -123,6 +126,9 @@ export function buildAnalysisReport(
     renderedSignals,
     renderedTextSignals,
     renderedButtonTextSignals,
+    renderedBackgroundSignals,
+    renderedButtonFillSignals,
+    renderedHeadingTextSignals,
   );
   const variables = mergeDetectedColorsIntoCatalog(buildVariableCatalog(css, variablesMap), theme);
   const brandChromatics = new Set(

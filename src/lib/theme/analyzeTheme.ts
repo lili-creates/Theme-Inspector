@@ -5,9 +5,12 @@ import {
   isDeclaredBrandTokenName,
 } from "../brandTokens";
 import {
+  buildRenderedColorLookup,
   extractColorsFromCss,
+  getRenderedColorWeight,
+  getRenderedColorWeightExact,
+  getRenderedColorFamilyWeight,
   type ColorUsage,
-  hueDistance,
   isNeutralColor,
   isStockCssKeywordColor,
   normalizeColorToHex,
@@ -21,6 +24,17 @@ import {
   isFeedbackChromaticColor,
   isSemanticColorContext,
 } from "../semanticColors";
+import {
+  colorVisualScore,
+  hasMeaningfulVisualPresence,
+  isCssOnlyGhostColor,
+  pickPrimaryColor,
+  pickSecondaryColor,
+  reconcilePrimarySecondary,
+  reconcileSecondaryWithHeadingAccent,
+  pickSecondaryFromHeadingAccent,
+  type VisualBrandContext,
+} from "./visualBrandRoles";
 function mergeSemanticHexSets(...sets: Set<string>[]): Set<string> {
   const out = new Set<string>();
   for (const s of sets) for (const h of s) out.add(h);
@@ -41,32 +55,15 @@ function shouldExcludeFromBrandRoles(
   const tokenHint = tokenSemanticHintByHex.get(c.hex.toUpperCase());
   if (tokenHint) return true;
 
-  if (semanticHexes.has(c.hex.toUpperCase())) return true;
+  if (semanticHexes.has(c.hex.toUpperCase())) {
+    // Mismo hex en reglas semánticas y en marca: si domina el CSS de UI, sigue siendo marca.
+    if (c.score >= 100 && c.semanticWeight < c.score * 0.32) return false;
+    return true;
+  }
 
   if (isFeedbackChromaticColor(c.hsl) && c.semanticWeight > 0) return true;
   if (c.semanticWeight <= 0) return false;
   return c.semanticWeight >= 5 && c.semanticWeight >= c.score * 0.28;
-}
-
-function colorUsageFromHintHex(
-  hex: string,
-  extracted: Map<string, ColorUsage>,
-): ColorUsage | null {
-  const normalized = normalizeColorToHex(hex);
-  if (!normalized) return null;
-  const existing = extracted.get(normalized);
-  if (existing) return existing;
-  const hsl = parseColorToHsl(normalized);
-  if (!hsl) return null;
-  return {
-    hex: normalized,
-    hsl,
-    count: 1,
-    score: 120,
-    semanticWeight: 0,
-    textScore: 0,
-    buttonTextScore: 0,
-  };
 }
 
 function buildDeclaredBrandTokens(
@@ -118,30 +115,11 @@ function buildDeclaredBrandTokens(
   return { tokens, tokenSemanticHintByHex, tokenRoleHintByHex };
 }
 
-/** Prefer a second brand hue in the same family (e.g. two blues on KLM). */
-function isAnalogousHue(
-  primaryH: number,
-  candidateH: number,
-  maxDistance = 55,
-): boolean {
-  const d = hueDistance(primaryH, candidateH);
-  return d >= 6 && d <= maxDistance;
-}
-
-function isInstitutionalCoolPrimary(hsl: { h: number; s: number; l: number }): boolean {
-  return hsl.h >= 185 && hsl.h <= 255 && hsl.l <= 48 && hsl.s >= 35;
-}
-
-/** Gold / amber / yellow accents (ICP, Vueling), not yellow-greens. */
-function isGoldYellowAccent(hsl: { h: number; s: number; l: number }): boolean {
-  return hsl.h >= 32 && hsl.h <= 68 && hsl.s >= 45 && hsl.l >= 30 && hsl.l <= 72;
-}
-
 function isSecondaryBrandVariableName(name: string): boolean {
   const lower = name.toLowerCase();
   if (isSemanticColorContext(lower)) return false;
   if (/\bprimary\b/.test(lower) && !/(secondary|secundario)/.test(lower)) return false;
-  // Real brand tokens â€” not menu/row/cell UI highlights
+  // Real brand tokens — not menu/row/cell UI highlights
   if (/(menu_|megamenu|row_|cell_|hover|focus|selection|highlighted)/.test(lower)) {
     return false;
   }
@@ -217,34 +195,20 @@ function collectSecondaryHintHexes(
   return out;
 }
 
-function brandColorBoost(hsl: { h: number; s: number; l: number }): number {
-  let boost = 0;
-  // Amarillo/dorado de marca (p. ej. Vueling #F7C600)
-  if (hsl.h >= 38 && hsl.h <= 68 && hsl.s >= 70 && hsl.l >= 32 && hsl.l <= 62) {
-    boost += 35;
-  }
-  // Colores de marca saturados (no neutros)
-  if (hsl.s >= 55 && hsl.l >= 22 && hsl.l <= 78) {
-    boost += 8;
-  }
-  return boost;
-}
-
 function normalizedRenderedMap(
   signals: Record<string, number> | undefined,
 ): { norm: (hex: string) => number; max: number } {
-  const values = Object.values(signals ?? {});
-  const max = values.length > 0 ? Math.max(...values) : 0;
+  const rendered = buildRenderedColorLookup(signals);
   return {
-    max,
+    max: rendered.max,
     norm: (hex: string) => {
-      if (max <= 0) return 0;
-      return Math.max(0, Math.min(1, (signals?.[hex] ?? 0) / max));
+      if (rendered.max <= 0) return 0;
+      return Math.max(0, Math.min(1, getRenderedColorWeight(rendered.lookup, hex) / rendered.max));
     },
   };
 }
 
-/** Grises y negros de copy (p. ej. menÃºs TAP), no verde lima de marca. */
+/** Grises y negros de copy, no acentos cromáticos de marca. */
 function isCopyTextNeutral(hsl: { h: number; s: number; l: number }, isDarkTheme: boolean): boolean {
   if (isDarkTheme) return hsl.l >= 62;
   if (hsl.l >= 92) return false;
@@ -252,7 +216,7 @@ function isCopyTextNeutral(hsl: { h: number; s: number; l: number }, isDarkTheme
   return hsl.s < 10 && hsl.l >= 8 && hsl.l <= 42;
 }
 
-/** Enlaces o labels de marca en color (verde lima TAP, etc.) â€” no es texto de cuerpo. */
+/** Enlaces o labels en color de acento — no es texto de cuerpo. */
 function isVividAccentTextColor(hsl: { h: number; s: number; l: number }): boolean {
   if (hsl.l < 26 || hsl.l > 80) return false;
   return hsl.s >= 38;
@@ -447,6 +411,9 @@ export function analyzeThemeFromCss(
   renderedSignals?: Record<string, number>,
   renderedTextSignals?: Record<string, number>,
   renderedButtonTextSignals?: Record<string, number>,
+  renderedBackgroundSignals?: Record<string, number>,
+  renderedButtonFillSignals?: Record<string, number>,
+  renderedHeadingTextSignals?: Record<string, number>,
 ): ThemeResult {
   const extracted = extractColorsFromCss(cssString, variablesMap, html, renderedSignals);
 
@@ -461,23 +428,66 @@ export function analyzeThemeFromCss(
   const renderedText = normalizedRenderedMap(renderedTextSignals ?? renderedSignals);
   const renderedButtonText = normalizedRenderedMap(renderedButtonTextSignals);
 
-  const renderedScale = (() => {
-    const values = Object.values(renderedSignals ?? {});
-    if (values.length === 0) return { max: 0, p75: 0 };
-    const sorted = [...values].sort((a, b) => a - b);
-    const max = sorted[sorted.length - 1] ?? 0;
-    const p75 = sorted[Math.floor(sorted.length * 0.75)] ?? 0;
-    return { max, p75 };
-  })();
+  const rendered = buildRenderedColorLookup(renderedSignals);
+  const renderedBackground = buildRenderedColorLookup(renderedBackgroundSignals);
+  const renderedButtonFill = buildRenderedColorLookup(renderedButtonFillSignals);
+  const renderedHeadingText = buildRenderedColorLookup(renderedHeadingTextSignals);
 
-  const renderedNormalized = (hex: string): number => {
-    if (!renderedSignals || renderedScale.max <= 0) return 0;
-    const v = renderedSignals[hex] ?? 0;
-    return Math.max(0, Math.min(1, v / renderedScale.max));
+  /** Fracción 0–1 del peso visual total en viewport (para % en UI y umbrales). */
+  const renderedShare = (hex: string): number => {
+    if (!rendered.sampled || rendered.total <= 0) return 0;
+    return getRenderedColorWeight(rendered.lookup, hex) / rendered.total;
   };
 
+  /** Superficies de fondo (headers, hero) — mejor proxy del color de marca dominante. */
+  const renderedBackgroundShare = (hex: string): number => {
+    if (!renderedBackground.sampled || renderedBackground.total <= 0) return 0;
+    return getRenderedColorWeight(renderedBackground.lookup, hex) / renderedBackground.total;
+  };
+
+  /** Relleno de botones / CTAs visibles (acento de marca en interacción). */
+  const renderedButtonFillShare = (hex: string): number => {
+    if (!renderedButtonFill.sampled || renderedButtonFill.total <= 0) return 0;
+    return getRenderedColorWeight(renderedButtonFill.lookup, hex) / renderedButtonFill.total;
+  };
+
+  /** Shares exactos (sin mezclar matiz cercano) para roles primario/secundario. */
+  const renderedShareExact = (hex: string): number => {
+    if (!rendered.sampled || rendered.total <= 0) return 0;
+    return getRenderedColorWeightExact(rendered.lookup, hex) / rendered.total;
+  };
+  const renderedBackgroundShareExact = (hex: string): number => {
+    if (!renderedBackground.sampled || renderedBackground.total <= 0) return 0;
+    return getRenderedColorWeightExact(renderedBackground.lookup, hex) / renderedBackground.total;
+  };
+  const renderedButtonFillShareExact = (hex: string): number => {
+    if (!renderedButtonFill.sampled || renderedButtonFill.total <= 0) return 0;
+    return getRenderedColorWeightExact(renderedButtonFill.lookup, hex) / renderedButtonFill.total;
+  };
+  const renderedHeadingTextShareExact = (hex: string): number => {
+    if (!renderedHeadingText.sampled || renderedHeadingText.total <= 0) return 0;
+    return getRenderedColorWeightExact(renderedHeadingText.lookup, hex) / renderedHeadingText.total;
+  };
+
+  const familyShare =
+    (lookup: Map<string, number>, total: number) =>
+    (hex: string): number => {
+      if (total <= 0) return 0;
+      return getRenderedColorFamilyWeight(lookup, hex) / total;
+    };
+
+  const renderedHeadingTextShareFamily = renderedHeadingText.sampled
+    ? familyShare(renderedHeadingText.lookup, renderedHeadingText.total)
+    : undefined;
+  const renderedButtonFillShareFamily = renderedButtonFill.sampled
+    ? familyShare(renderedButtonFill.lookup, renderedButtonFill.total)
+    : undefined;
+  const renderedBackgroundShareFamily = renderedBackground.sampled
+    ? familyShare(renderedBackground.lookup, renderedBackground.total)
+    : undefined;
+
   const { tokens: brandTokens, tokenSemanticHintByHex, tokenRoleHintByHex } =
-    buildDeclaredBrandTokens(variablesMap, cssString, resolveColor, renderedNormalized);
+    buildDeclaredBrandTokens(variablesMap, cssString, resolveColor, renderedShareExact);
 
   // Boost variables whose names imply brand roles (suave; la pantalla manda en los roles)
   for (const [name, value] of variablesMap.entries()) {
@@ -491,7 +501,7 @@ export function analyzeThemeFromCss(
       semanticHexes.add(hex.toUpperCase());
       continue;
     }
-    const rn = renderedNormalized(hex);
+    const rn = renderedShare(hex);
     const roleHint = getTokenRoleHint(name);
     const semanticHint = getBrandTokenSemanticHint(name);
 
@@ -514,16 +524,27 @@ export function analyzeThemeFromCss(
     if (rt > 0) entry.textScore += rt * 80;
     const rb = renderedButtonText.norm(entry.hex);
     if (rb > 0) entry.buttonTextScore += rb * 85;
-
-    entry.score += brandColorBoost(entry.hsl);
+    const rbf = renderedButtonFillShare(entry.hex);
+    if (rbf > 0) {
+      entry.score += rbf * 240;
+      entry.score *= 1 + rbf * 0.35;
+    }
+    const rh = Math.max(
+      renderedHeadingTextShareExact(entry.hex),
+      renderedHeadingTextShareFamily?.(entry.hex) ?? 0,
+    );
+    if (rh > 0) {
+      entry.score += rh * 280;
+      entry.headingTextScore += rh * 120;
+    }
 
     // Prefer colors that are actually visible in rendered viewport.
-    const rn = renderedNormalized(entry.hex);
+    const rn = renderedShareExact(entry.hex);
     if (rn > 0) {
       // Strong additive and multiplicative boost for visible colors.
       entry.score += rn * 220;
       entry.score *= 1 + rn * 0.55;
-    } else if (renderedSignals && entry.hsl.s >= 30) {
+    } else if (rendered.sampled && entry.hsl.s >= 30) {
       // If we have rendered evidence and this chromatic color is not visible,
       // reduce its influence so "CSS-only" tokens do not dominate brand roles.
       entry.score *= 0.62;
@@ -531,9 +552,9 @@ export function analyzeThemeFromCss(
 
     // Extra bump for colors in the upper quartile of rendered prevalence.
     if (
-      renderedSignals &&
-      renderedScale.p75 > 0 &&
-      (renderedSignals[entry.hex] ?? 0) >= renderedScale.p75
+      rendered.sampled &&
+      rendered.p75 > 0 &&
+      getRenderedColorWeight(rendered.lookup, entry.hex) >= rendered.p75
     ) {
       entry.score += 80;
     }
@@ -543,104 +564,42 @@ export function analyzeThemeFromCss(
 
   const chromatic = ranked.filter((c) => {
     if (isNeutralColor(c.hsl)) return false;
+    if (isStockCssKeywordColor(c.hex)) return false;
     return !shouldExcludeFromBrandRoles(
       c,
       semanticHexes,
-      renderedNormalized,
+      renderedShareExact,
       tokenSemanticHintByHex,
     );
   });
   const neutrals = ranked.filter((c) => isNeutralColor(c.hsl));
 
-  const brandSelectionScore = (c: (typeof chromatic)[number]): number => {
-    const rn = renderedNormalized(c.hex);
-    const saturationBonus = Math.max(0, c.hsl.s - 35) * 0.45;
-    const vividRangeBonus = c.hsl.l >= 24 && c.hsl.l <= 72 ? 10 : 0;
-    const yellowBrandBonus =
-      rn > 0.04 && c.hsl.h >= 38 && c.hsl.h <= 68 && c.hsl.s >= 60 && c.hsl.l >= 28 && c.hsl.l <= 70
-        ? 10
-        : 0;
-    // Base structural score (DOM/CSS prevalence) should dominate when render signal is missing.
-    return c.score * 0.85 + rn * 420 + saturationBonus + vividRangeBonus + yellowBrandBonus;
-  };
-
   const brandPool = chromatic.filter((c) => c.hsl.s >= 30);
   const candidates = [...(brandPool.length > 0 ? brandPool : chromatic)];
 
-  const hasVisibleInstitutionalNavy = candidates.some(
-    (c) =>
-      c.hsl.h >= 200 &&
-      c.hsl.h <= 255 &&
-      c.hsl.l <= 42 &&
-      renderedNormalized(c.hex) >= 0.02,
-  );
-
-  const primarySelectionScore = (c: (typeof chromatic)[number]): number => {
-    const rn = renderedNormalized(c.hex);
-    const saturationBonus = Math.max(0, c.hsl.s - 30) * 0.22;
-    const readabilityBonus = c.hsl.l >= 16 && c.hsl.l <= 58 ? 8 : 0;
-    const tokenHint =
-      tokenRoleHintByHex.get(c.hex.toUpperCase()) === "primary" ? 18 + rn * 45 : 0;
-    const navyBrandBoost =
-      hasVisibleInstitutionalNavy &&
-      c.hsl.h >= 200 &&
-      c.hsl.h <= 255 &&
-      c.hsl.l <= 42
-        ? 130 + rn * 60
-        : 0;
-    const yellowNotPrimaryPenalty =
-      hasVisibleInstitutionalNavy && c.hsl.h >= 32 && c.hsl.h <= 72 ? -90 : 0;
-    return (
-      c.score * 0.75 +
-      rn * 480 +
-      saturationBonus +
-      readabilityBonus +
-      tokenHint +
-      navyBrandBoost +
-      yellowNotPrimaryPenalty
-    );
+  const visualCtx: VisualBrandContext = {
+    renderedShare: renderedShareExact,
+    renderedBackgroundShare: renderedBackgroundShareExact,
+    renderedButtonFillShare: renderedButtonFillShareExact,
+    renderedHeadingTextShare: renderedHeadingTextShareExact,
+    renderedHeadingTextShareFamily: renderedHeadingTextShareFamily,
+    renderedButtonFillShareFamily: renderedButtonFillShareFamily,
+    renderedBackgroundShareFamily: renderedBackgroundShareFamily,
+    tokenRoleHintByHex,
+    renderedSampled: rendered.sampled,
+    renderedBackgroundSampled: renderedBackground.sampled,
+    renderedButtonFillSampled: renderedButtonFill.sampled,
+    renderedHeadingTextSampled: renderedHeadingText.sampled,
   };
+
+  const brandSelectionScore = (c: (typeof chromatic)[number]): number =>
+    colorVisualScore(c, visualCtx);
 
   const chromaticRanked = [...candidates].sort(
     (a, b) => brandSelectionScore(b) - brandSelectionScore(a) || b.score - a.score,
   );
 
-  const primaryByScore = [...candidates].sort(
-    (a, b) => primarySelectionScore(b) - primarySelectionScore(a) || b.score - a.score,
-  )[0];
-
-  const tokenPrimaryEntry = brandTokens.find(
-    (t) =>
-      !t.semanticHint &&
-      (t.roleHint === "primary" ||
-        /(lhdeepblue|deepblue|brand-blue|navy)/i.test(t.name)),
-  );
-  const tokenPrimary = tokenPrimaryEntry
-    ? colorUsageFromHintHex(tokenPrimaryEntry.hex, extracted)
-    : null;
-
-  const primary = (() => {
-    if (!primaryByScore && !tokenPrimary) return null;
-    if (!tokenPrimary) return primaryByScore ?? null;
-    if (!primaryByScore) return tokenPrimary;
-
-    const vnScore = renderedNormalized(primaryByScore.hex);
-    const vnToken = renderedNormalized(tokenPrimary.hex);
-
-    if (renderedScale.max <= 0) return tokenPrimary;
-
-    if (
-      isInstitutionalCoolPrimary(tokenPrimary.hsl) &&
-      isGoldYellowAccent(primaryByScore.hsl) &&
-      vnScore < 0.22
-    ) {
-      return tokenPrimary;
-    }
-    if (vnToken >= vnScore * 0.5 || vnToken >= VISIBLE_BRAND_ROLE_THRESHOLD) {
-      return tokenPrimary;
-    }
-    return primaryByScore;
-  })();
+  let primary = pickPrimaryColor(candidates, visualCtx);
 
   const secondaryCandidates = chromaticRanked.filter((c) => {
     if (!primary || c.hex === primary.hex || c.hsl.s < 25 || isStockCssKeywordColor(c.hex)) {
@@ -653,61 +612,24 @@ export function analyzeThemeFromCss(
     return true;
   });
 
-  const pickBest = (list: ColorUsage[]): ColorUsage | null =>
-    list.length > 0
-      ? [...list].sort(
-          (a, b) => brandSelectionScore(b) - brandSelectionScore(a) || b.score - a.score,
-        )[0]!
-      : null;
-
-  const secondarySelectionScore = (c: (typeof chromatic)[number]): number => {
-    const rn = renderedNormalized(c.hex);
-    const tokenHint =
-      tokenRoleHintByHex.get(c.hex.toUpperCase()) === "secondary" ? 16 + rn * 40 : 0;
-    return brandSelectionScore(c) + tokenHint;
-  };
-
-  const fromHint =
-    [...secondaryCandidates]
-      .sort((a, b) => secondarySelectionScore(b) - secondarySelectionScore(a))
-      .find(
-        (c) =>
-          tokenRoleHintByHex.get(c.hex.toUpperCase()) === "secondary" ||
-          secondaryHintHexes.has(c.hex.toUpperCase()),
-      ) ?? null;
-
-  const goldYellowCandidates = secondaryCandidates.filter((c) => isGoldYellowAccent(c.hsl));
-  const analogousCandidates = secondaryCandidates.filter(
-    (c) => primary && isAnalogousHue(primary.hsl.h, c.hsl.h),
+  let secondary = pickSecondaryColor(
+    secondaryCandidates,
+    primary,
+    visualCtx,
+    secondaryHintHexes,
   );
 
-  const secondaryFromCoolPrimary = (): ColorUsage | null => {
-    if (!primary || !isInstitutionalCoolPrimary(primary.hsl)) return null;
-    const bestGold = pickBest(goldYellowCandidates);
-    const bestAnalogous = pickBest(analogousCandidates);
-    if (bestGold && !bestAnalogous) return bestGold;
-    if (bestGold && bestAnalogous) {
-      // ICP-style: gold/yellow accent; KLM keeps blue when gold is weak.
-      if (bestGold.count >= 4 || bestGold.score >= bestAnalogous.score * 0.35) {
-        return bestGold;
-      }
-      return bestAnalogous;
-    }
-    return bestAnalogous;
-  };
-
-  const contrastingCandidates = secondaryCandidates.filter(
-    (c) => primary && hueDistance(c.hsl.h, primary.hsl.h) >= 25,
+  if (!secondary && primary) {
+    secondary = pickSecondaryFromHeadingAccent(secondaryCandidates, primary, visualCtx);
+  }
+  secondary = reconcileSecondaryWithHeadingAccent(
+    secondary,
+    secondaryCandidates,
+    primary,
+    visualCtx,
   );
 
-  const secondary =
-    fromHint ??
-    secondaryFromCoolPrimary() ??
-    pickBest(analogousCandidates) ??
-    pickBest(goldYellowCandidates) ??
-    pickBest(contrastingCandidates) ??
-    pickBest(secondaryCandidates) ??
-    null;
+  ({ primary, secondary } = reconcilePrimarySecondary(primary, secondary, visualCtx));
 
   const lightBg = neutrals
     .filter((c) => c.hsl.l >= 70)
@@ -814,12 +736,26 @@ export function analyzeThemeFromCss(
     roles.set(textOnButton.hex, "text-button");
   }
 
-  // Top accent colors (saturated, high usage) not already assigned
+  // Acentos: solo colores vistos en pantalla (no fantasmas del CSS)
   let accentCount = 0;
-  for (const c of chromatic) {
+  for (const c of chromaticRanked) {
     if (accentCount >= 2) break;
     if (roles.has(c.hex)) continue;
     if (c.hsl.s < 35) continue;
+    if (!hasMeaningfulVisualPresence(visualCtx, c)) continue;
+    const noViewport =
+      !visualCtx.renderedSampled &&
+      !visualCtx.renderedBackgroundSampled &&
+      !visualCtx.renderedButtonFillSampled;
+    if (
+      isFeedbackChromaticColor(c.hsl) &&
+      (noViewport ? c.count < 25 : visualCtx.renderedShare(c.hex) < 0.015)
+    ) {
+      continue;
+    }
+    if (noViewport && isCssOnlyGhostColor(c, visualCtx)) {
+      continue;
+    }
     roles.set(c.hex, "accent");
     accentCount++;
   }
@@ -839,7 +775,7 @@ export function analyzeThemeFromCss(
     c: (typeof ranked)[number],
     source: PaletteColor["source"],
   ): PaletteColor => {
-    const rn = renderedNormalized(c.hex);
+    const share = renderedShareExact(c.hex);
     return {
       hex: c.hex,
       usage: c.count,
@@ -847,7 +783,7 @@ export function analyzeThemeFromCss(
       role: roles.get(c.hex) ?? "palette",
       hsl: c.hsl,
       source,
-      visibleWeight: Math.round(rn * 100),
+      visibleWeight: rendered.sampled ? Math.round(share * 100) : 0,
     };
   };
 
@@ -855,23 +791,42 @@ export function analyzeThemeFromCss(
     (c) =>
       !isNeutralColor(c.hsl) &&
       c.hsl.s >= 25 &&
+      !isStockCssKeywordColor(c.hex) &&
       !shouldExcludeFromBrandRoles(
         c,
         semanticHexes,
-        renderedNormalized,
+        renderedShareExact,
         tokenSemanticHintByHex,
       ),
   );
 
-  const brandVisible = chromaticForBrand
-    .filter((c) => renderedNormalized(c.hex) > 0.03 || roles.has(c.hex))
-    .map((c) => toPaletteColor(c, "visible"))
-    .sort((a, b) => {
-      const ra = roleOrder[a.role ?? "palette"] ?? 5;
-      const rb = roleOrder[b.role ?? "palette"] ?? 5;
-      if (ra !== rb) return ra - rb;
-      return b.visibleWeight - a.visibleWeight || b.score - a.score;
-    });
+  const brandVisible = (() => {
+    const roleColors = chromaticForBrand.filter((c) => roles.has(c.hex));
+    if (!rendered.sampled) {
+      return roleColors
+        .map((c) => toPaletteColor(c, "visible"))
+        .sort((a, b) => {
+          const ra = roleOrder[a.role ?? "palette"] ?? 5;
+          const rb = roleOrder[b.role ?? "palette"] ?? 5;
+          if (ra !== rb) return ra - rb;
+          return b.score - a.score;
+        });
+    }
+
+    const fromViewport = chromaticForBrand.filter(
+      (c) =>
+        roles.has(c.hex) ||
+        (hasMeaningfulVisualPresence(visualCtx, c) && !isCssOnlyGhostColor(c, visualCtx)),
+    );
+    return fromViewport
+      .map((c) => toPaletteColor(c, "visible"))
+      .sort((a, b) => {
+        const ra = roleOrder[a.role ?? "palette"] ?? 5;
+        const rb = roleOrder[b.role ?? "palette"] ?? 5;
+        if (ra !== rb) return ra - rb;
+        return b.visibleWeight - a.visibleWeight || b.score - a.score;
+      });
+  })();
 
   const visibleHex = new Set(brandVisible.map((c) => c.hex));
   const brandLegacy = chromaticForBrand
@@ -889,6 +844,7 @@ export function analyzeThemeFromCss(
     text_on_background: textOnSurface?.hex ?? null,
     text_on_button: textOnButton?.hex ?? null,
     text_color: textOnSurface?.hex ?? null,
+    viewportSampled: rendered.sampled,
     brandTokens,
     brandVisible,
     brandLegacy,

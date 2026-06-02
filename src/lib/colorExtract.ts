@@ -32,6 +32,8 @@ export type ColorUsage = {
   textScore: number;
   /** Weight from `color:` on button / CTA selectors. */
   buttonTextScore: number;
+  /** Weight from `color:` on headings / títulos de marca / logo. */
+  headingTextScore: number;
 };
 
 function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
@@ -118,6 +120,95 @@ export function normalizeColorToHex(input: string): string | null {
   return null;
 }
 
+export type RenderedColorLookup = {
+  lookup: Map<string, number>;
+  total: number;
+  max: number;
+  p75: number;
+  sampled: boolean;
+};
+
+/** Agrupa señales del viewport por hex normalizado (#RRGGBB). */
+export function buildRenderedColorLookup(
+  signals?: Record<string, number>,
+): RenderedColorLookup {
+  const lookup = new Map<string, number>();
+  if (!signals) {
+    return { lookup, total: 0, max: 0, p75: 0, sampled: false };
+  }
+
+  for (const [key, raw] of Object.entries(signals)) {
+    const hex = normalizeColorToHex(key);
+    if (!hex) continue;
+    lookup.set(hex, (lookup.get(hex) ?? 0) + Math.max(0, raw));
+  }
+
+  const values = [...lookup.values()];
+  const total = values.reduce((sum, v) => sum + v, 0);
+  const max = values.length > 0 ? Math.max(...values) : 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const p75 = sorted[Math.floor(sorted.length * 0.75)] ?? 0;
+
+  return { lookup, total, max, p75, sampled: total > 0 };
+}
+
+/** Peso en viewport solo si el hex coincide exactamente (roles de marca). */
+export function getRenderedColorWeightExact(lookup: Map<string, number>, hex: string): number {
+  const key = normalizeColorToHex(hex);
+  if (!key) return 0;
+  return lookup.get(key) ?? 0;
+}
+
+/**
+ * Suma peso de viewport en la misma familia de matiz (p. ej. #F7C600 ↔ #FFCC00 en logo).
+ * Solo para canales de superficie/título — no para mezclar rojos y azules.
+ */
+export function getRenderedColorFamilyWeight(
+  lookup: Map<string, number>,
+  hex: string,
+  maxHueDistance = 16,
+): number {
+  const key = normalizeColorToHex(hex);
+  if (!key) return 0;
+  const hsl = parseColorToHsl(key);
+  if (!hsl || hsl.s < 12) return lookup.get(key) ?? 0;
+
+  let sum = 0;
+  for (const [candidate, weight] of lookup) {
+    if (weight <= 0) continue;
+    const candidateHsl = parseColorToHsl(candidate);
+    if (!candidateHsl) continue;
+    if (hueDistance(hsl.h, candidateHsl.h) <= maxHueDistance) {
+      sum += weight;
+    }
+  }
+  return sum;
+}
+
+/** Peso en viewport; si no hay match exacto, aproxima por matiz cercano. */
+export function getRenderedColorWeight(lookup: Map<string, number>, hex: string): number {
+  const key = normalizeColorToHex(hex) ?? hex.toUpperCase();
+  const direct = lookup.get(key);
+  if (direct != null && direct > 0) return direct;
+
+  const hsl = parseColorToHsl(key);
+  if (!hsl) return 0;
+
+  let best = 0;
+  let bestDist = Infinity;
+  for (const [candidate, weight] of lookup) {
+    if (weight <= 0) continue;
+    const candidateHsl = parseColorToHsl(candidate);
+    if (!candidateHsl) continue;
+    const dist = hueDistance(hsl.h, candidateHsl.h) + Math.abs(hsl.l - candidateHsl.l) * 0.35;
+    if (dist < bestDist && dist <= 20) {
+      bestDist = dist;
+      best = weight;
+    }
+  }
+  return best;
+}
+
 export function resolveCssColor(value: string, variables: Map<string, string>, depth = 0): string {
   if (depth > 6) return value.trim();
   let v = value.trim();
@@ -193,6 +284,13 @@ function buttonTextSelectorBoost(selector: string): number {
   return isButtonSelector(selector) ? 3.2 : 0.12;
 }
 
+function headingTextSelectorBoost(selector: string): number {
+  const s = selector.toLowerCase();
+  if (/(^|[\s>+~(])(h[1-6])([\s.:#[,>+~]|$)/.test(s)) return 4.2;
+  if (/\b(title|headline|heading|logo|brand-mark|wordmark|tagline)\b/.test(s)) return 3.4;
+  return 0;
+}
+
 function cleanupSelectorForCheerio(selector: string): string {
   // Remove pseudo states/elements and unsupported construct fragments
   return selector
@@ -255,20 +353,24 @@ export function extractColorsFromCss(
       const hsl = parseColorToHsl(hex);
       if (!hsl) continue;
 
+      const stockKeyword = isStockCssKeywordColor(hex);
+      const weightForEntry = stockKeyword ? effectiveWeight * 0.04 : effectiveWeight;
+
       const existing = map.get(hex);
       if (existing) {
         existing.count += 1;
-        existing.score += effectiveWeight;
+        existing.score += weightForEntry;
         if (isSemantic) existing.semanticWeight += weight;
       } else {
         map.set(hex, {
           hex,
           hsl,
           count: 1,
-          score: effectiveWeight,
+          score: weightForEntry,
           semanticWeight: isSemantic ? weight : 0,
           textScore: 0,
           buttonTextScore: 0,
+          headingTextScore: 0,
         });
       }
     }
@@ -306,6 +408,8 @@ export function extractColorsFromCss(
           } else {
             entry.textScore += base * textSelectorBoost(selector);
           }
+          const headingBoost = headingTextSelectorBoost(selector);
+          if (headingBoost > 0) entry.headingTextScore += base * headingBoost;
         }
       }
     }
@@ -342,6 +446,7 @@ export function extractColorsFromCss(
           semanticWeight: 0,
           textScore: 0,
           buttonTextScore: 0,
+          headingTextScore: 0,
         });
       }
     }

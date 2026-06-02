@@ -1,24 +1,25 @@
 ﻿---
 import StudyLayout from "../layouts/StudyLayout.astro";
-import Showcase from "../components/Showcase.astro";
+import Showcase from "../components/showcase/Showcase.astro";
 ---
 
-<StudyLayout title="Theme Inspector â€” Estudio CSS">
+<StudyLayout title="Theme Inspector — Estudio CSS">
   <header class="studyTop no-print">
-    <a class="back" href="/">â† Nueva URL</a>
+    <a class="back" href="/">← Nueva URL</a>
     <div class="meta">
-      <h1>Estudio de diseÃ±o</h1>
-      <p id="study-url" class="url">Cargando anÃ¡lisisâ€¦</p>
+      <h1>Estudio de diseño</h1>
+      <p id="study-url" class="url">Cargando análisis…</p>
     </div>
   </header>
 
   <main class="studyMain">
     <div id="study-loading" class="loading" aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
-      <p>Extrayendo variables y patrones del sitioâ€¦</p>
+      <p>Extrayendo variables y patrones del sitio…</p>
     </div>
 
     <div id="study-error" class="error hidden" role="alert"></div>
+    <p id="deployment-hints" class="deploymentHints hidden" role="status"></p>
 
     <div id="study-content" class="content hidden">
       <section class="statsSection" aria-labelledby="stats-title">
@@ -34,8 +35,8 @@ import Showcase from "../components/Showcase.astro";
         <div class="brandHead">
           <h2 id="brand-tokens-title">Tokens de marca (design system)</h2>
           <p>
-            Valores declarados en CSS como marca. Los roles (primario/secundario) se asignan segÃºn lo
-            que prevalece en pantalla; un token semÃ¡ntico (p. ej. brand-red) se lista aquÃ­ aunque no
+            Valores declarados en CSS como marca. Los roles (primario/secundario) se asignan según lo
+            que prevalece en pantalla; un token semántico (p. ej. brand-red) se lista aquí aunque no
             sea el color dominante de la UI.
           </p>
         </div>
@@ -45,7 +46,11 @@ import Showcase from "../components/Showcase.astro";
       <section class="brandSection" aria-labelledby="brand-visible-title">
         <div class="brandHead">
           <h2 id="brand-visible-title">Marca visible en pantalla</h2>
-          <p>Colores que realmente aparecen en la UI analizada (viewport). Prioridad para primario y secundario.</p>
+          <p>
+            Colores con rol de marca asignado (primario, secundario, acento). Con muestra de viewport
+            también aparecen otros tonos medidos en pantalla; sin viewport solo se listan roles
+            confirmados por CSS y reglas de presencia.
+          </p>
         </div>
         <div id="brand-visible-grid" class="brandGrid"></div>
       </section>
@@ -63,7 +68,7 @@ import Showcase from "../components/Showcase.astro";
           <h2 id="tokens-title">Variables del sitio</h2>
           <label class="search">
             <span class="sr-only">Buscar variable</span>
-            <input id="var-search" type="search" placeholder="Buscar por nombre o valorâ€¦" />
+            <input id="var-search" type="search" placeholder="Buscar por nombre o valor…" />
           </label>
         </div>
         <div id="category-sections" class="categorySections"></div>
@@ -159,6 +164,17 @@ import Showcase from "../components/Showcase.astro";
       background: rgba(248, 113, 113, 0.12);
       color: rgba(255, 255, 255, 0.9);
       font-size: 14px;
+    }
+
+    .deploymentHints {
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.1);
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 13px;
+      line-height: 1.45;
     }
 
     .identityNote {

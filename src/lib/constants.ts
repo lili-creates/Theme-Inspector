@@ -1,5 +1,4 @@
 export const STORAGE_KEY = "ti:lastAnalysis";
-export const STORAGE_PREVIEW_KEY = "ti:lastPreviewShot";
 
 export const CATEGORY_LABELS: Record<string, string> = {
   color: "Colores",

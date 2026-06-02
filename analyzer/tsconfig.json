@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.analyzer.json",
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}

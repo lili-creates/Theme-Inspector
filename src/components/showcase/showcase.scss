@@ -1,0 +1,375 @@
+#theme-showcase.hidden {
+  display: none;
+}
+
+#theme-showcase.showcase {
+  /* Sin valores de demostración: solo se pinta lo devuelto por el análisis. */
+  --extracted-primary: transparent;
+  --extracted-secondary: transparent;
+  --extracted-bg: transparent;
+  --extracted-text-surface: transparent;
+  --extracted-text-button: transparent;
+  --extracted-text: transparent;
+
+  isolation: isolate;
+  border-radius: 20px;
+  padding: 22px;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+
+  /* —— Header —— */
+  .showcaseHeader {
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .showcaseHeader .titleRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .showcaseHeader h2 {
+    margin: 0 0 6px;
+    font-size: clamp(18px, 2vw, 22px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: rgba(255, 255, 255, 0.96);
+  }
+
+  .showcaseHeader .titleRow > div > p {
+    margin: 0;
+    max-width: 42ch;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.58);
+  }
+
+  .showcaseHeader .titleActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .showcaseHeader .siteLink,
+  .showcaseHeader .printBtn {
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .showcaseHeader .siteLink:hover,
+  .showcaseHeader .printBtn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.28);
+    transform: translateY(-1px);
+  }
+
+  /* —— Palette shell —— */
+  .palette {
+    position: relative;
+    display: grid;
+    gap: 28px;
+  }
+
+  .paletteIntro h3 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .paletteIntro p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .paletteGroup {
+    display: grid;
+    gap: 12px;
+  }
+
+  .groupTitle {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .groupHint {
+    margin: -4px 0 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.48);
+  }
+
+  /* —— Hero swatches (primary / secondary) —— */
+  .heroGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .swatch--hero {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+
+    &:hover {
+      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.26);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .swatchColor {
+      display: block;
+      width: 100%;
+      min-height: 96px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .swatchBody {
+      display: grid;
+      gap: 4px;
+      padding: 14px 16px 16px;
+    }
+
+    .swatchRole {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .swatchLabel {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .swatchHex {
+      margin-top: 4px;
+      font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #fff;
+    }
+
+    .swatchToken {
+      font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.42);
+    }
+  }
+
+  /* —— Surface swatches —— */
+  .surfaceGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    max-width: 360px;
+  }
+
+  .textGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .swatch--surface,
+  .swatch--text {
+    display: grid;
+    grid-template-rows: 56px auto;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.22);
+    cursor: pointer;
+    text-align: left;
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .swatchColor {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 56px;
+    }
+
+    .swatchBody {
+      display: grid;
+      gap: 2px;
+      padding: 10px 12px 12px;
+    }
+
+    .swatchRole {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .swatchLabel {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .swatchHex {
+      font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .swatchToken {
+      font-size: 10px;
+      font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+      color: rgba(255, 255, 255, 0.38);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  /* —— Toast —— */
+  .palette .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%) translateY(8px);
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(8, 12, 22, 0.92);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease;
+    z-index: 5;
+
+    &.isVisible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .heroGrid {
+      grid-template-columns: 1fr;
+    }
+
+    .surfaceGrid,
+    .textGrid {
+      grid-template-columns: 1fr;
+      max-width: none;
+    }
+  }
+
+  @media (max-width: 520px) {
+    padding: 16px;
+
+    .swatch--hero .swatchColor {
+      min-height: 72px;
+    }
+
+    .swatch--hero .swatchHex {
+      font-size: 17px;
+    }
+  }
+
+  /* Rol no inferido: no mostrar color inventado (p. ej. azul de plantilla). */
+  $unset-pattern: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.05) 0,
+    rgba(255, 255, 255, 0.05) 8px,
+    rgba(255, 255, 255, 0.11) 8px,
+    rgba(255, 255, 255, 0.11) 16px
+  );
+
+  &:not([data-has-primary="true"]) [data-presence="hasPrimary"] .swatchColor,
+  &:not([data-has-secondary="true"]) [data-presence="hasSecondary"] .swatchColor,
+  &:not([data-has-bg="true"]) [data-presence="hasBg"] .swatchColor,
+  &:not([data-has-text-surface="true"]) [data-presence="hasTextSurface"] .swatchColor,
+  &:not([data-has-text-button="true"]) [data-presence="hasTextButton"] .swatchColor {
+    background: $unset-pattern !important;
+    border: 1px dashed rgba(255, 255, 255, 0.22);
+  }
+
+  &:not([data-has-primary="true"]) [data-presence="hasPrimary"] .swatchLabel,
+  &:not([data-has-secondary="true"]) [data-presence="hasSecondary"] .swatchLabel,
+  &:not([data-has-bg="true"]) [data-presence="hasBg"] .swatchLabel,
+  &:not([data-has-text-surface="true"]) [data-presence="hasTextSurface"] .swatchLabel,
+  &:not([data-has-text-button="true"]) [data-presence="hasTextButton"] .swatchLabel {
+    color: rgba(255, 255, 255, 0.52);
+  }
+}
+
+@media print {
+  #theme-showcase.showcase {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: #fff !important;
+    border-color: #ddd !important;
+    box-shadow: none !important;
+    color: #111 !important;
+  }
+
+  #theme-showcase .swatch--hero,
+  #theme-showcase .swatch--surface,
+  #theme-showcase .swatch--text {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-color: #ccc !important;
+    box-shadow: none !important;
+  }
+
+  #theme-showcase .swatchHex {
+    color: #111 !important;
+  }
+}

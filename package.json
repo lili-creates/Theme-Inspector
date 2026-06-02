@@ -3,21 +3,27 @@
   "type": "module",
   "version": "0.0.1",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "analyzer": "pnpm --dir analyzer exec tsx src/server.ts",
+    "playwright:install": "playwright install chromium",
+    "typecheck:analyzer": "pnpm --dir analyzer exec tsc --noEmit -p tsconfig.json",
+    "eval:colors": "tsx scripts/eval-theme-colors.mjs"
   },
   "dependencies": {
-    "@astrojs/node": "^10.1.2",
+    "@astrojs/vercel": "^10.0.8",
     "astro": "^6.4.2",
-    "cheerio": "^1.2.0",
-    "playwright": "^1.60.0"
+    "cheerio": "^1.2.0"
   },
   "devDependencies": {
-    "sass": "^1.100.0"
+    "@types/node": "^22.15.0",
+    "playwright": "^1.60.0",
+    "sass": "^1.100.0",
+    "typescript": "^5.8.2"
   }
 }

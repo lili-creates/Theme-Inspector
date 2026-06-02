@@ -1,13 +1,20 @@
+import { parseColorToHsl } from "./color/colorMath";
+
 /** Tokens in CSS names/selectors that indicate feedback / status colors, not brand. */
 const SEMANTIC_NAME_RE =
-  /\b(error|errors|err|danger|destructive|invalid|failure|failed|fail|alert-danger|negative|success|successful|valid|ok|positive|warning|warnings|warn|caution|info|informational|notice|critical|required|feedback|status|validation|form-error|field-error|toast|banner-error|message-error|message-warning|message-success|message-info|semantic)\b/i;
+  /\b(error|errors|err|danger|destructive|invalid|failure|failed|fail|alert-danger|negative|success|successful|valid|ok|positive|critical|required|feedback|status|validation|form-error|field-error|banner-error|message-error|message-warning|message-success|message-info|semantic)\b/i;
 
 /** Whole-segment match (e.g. `--color-error-500`, `btn--danger`) */
 const SEMANTIC_SEGMENT_RE =
   /(?:^|[-_/])(error|err|danger|destructive|invalid|fail|warning|warn|caution|success|valid|info|notice|critical|negative|positive)(?:[-_/]|$)/i;
 
+/** BEM/state modifiers on banners (e.g. `.global-message--info`) — not design-token semantics. */
+const COMPONENT_STATUS_MODIFIER_RE =
+  /\b(?:global-message|alert|notification|toast|snackbar|banner|message|snack|modal-message)(?:__|--)(?:info|warning|success|error)\b/i;
+
 export function isSemanticColorContext(text: string): boolean {
   const t = text.toLowerCase();
+  if (COMPONENT_STATUS_MODIFIER_RE.test(t)) return false;
   if (SEMANTIC_SEGMENT_RE.test(t)) return true;
   if (SEMANTIC_NAME_RE.test(t)) {
     // Avoid false positives on brand-ish names
@@ -49,6 +56,19 @@ export function collectSemanticHexesFromVariables(
   return out;
 }
 
+function addSemanticHexFromRule(
+  out: Set<string>,
+  toHex: (input: string) => string | null,
+  raw: string,
+): void {
+  const h = toHex(raw);
+  if (!h) return;
+  const hsl = parseColorToHsl(h);
+  // Only exclude hues that look like feedback (red/green), not brand blues reused in error UI.
+  if (hsl && !isFeedbackChromaticColor(hsl)) return;
+  out.add(h.toUpperCase());
+}
+
 /** Hex literals used only in rules whose selectors are semantic (e.g. `.error`, `.form-invalid`). */
 export function collectSemanticHexesFromCssRules(
   css: string,
@@ -66,14 +86,12 @@ export function collectSemanticHexesFromCssRules(
     }
     const body = ruleMatch[2] ?? "";
     for (const m of body.matchAll(/#(?:[0-9a-fA-F]{3,8})\b/gi)) {
-      const h = toHex(m[0]!);
-      if (h) out.add(h.toUpperCase());
+      addSemanticHexFromRule(out, toHex, m[0]!);
     }
     for (const m of body.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) {
       const v = variables.get(m[1]!);
       if (!v) continue;
-      const h = toHex(resolve(v));
-      if (h) out.add(h.toUpperCase());
+      addSemanticHexFromRule(out, toHex, resolve(v));
     }
   }
   return out;

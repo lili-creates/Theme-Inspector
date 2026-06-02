@@ -1,15 +1,26 @@
 import * as cheerio from "cheerio";
 import { THEME_INSPECTOR_USER_AGENT } from "../browser/userAgent";
 import { extractAllCustomProperties } from "../css/parseVariables";
+import {
+  canUsePlaywright,
+  fetchTimeoutMs,
+  maxStylesheetFetches,
+} from "../runtime/deployment";
+import { isUrlAllowedForServerFetch } from "../urlSafety";
+import { safeFetchText } from "./safeFetch";
 
 const MAX_INLINE_STYLE_NODES = 400;
 const MAX_CSS_BYTES = 2_000_000;
 
 async function fetchText(url: string, init?: RequestInit): Promise<string> {
+  if (!isUrlAllowedForServerFetch(url)) {
+    throw new Error("URL not allowed");
+  }
+  const timeoutMs = fetchTimeoutMs();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    return await safeFetchText(url, {
       ...init,
       signal: controller.signal,
       headers: {
@@ -17,10 +28,7 @@ async function fetchText(url: string, init?: RequestInit): Promise<string> {
         accept: "*/*",
         ...(init?.headers ?? {}),
       },
-      redirect: "follow",
     });
-    if (!res.ok) throw new Error(`Fetch failed (${res.status}) for ${url}`);
-    return await res.text();
   } finally {
     clearTimeout(timeout);
   }
@@ -35,8 +43,29 @@ async function collectWithBrowser(targetUrl: string): Promise<{
   inlineCss: string[];
   cssHrefs: string[];
 }> {
-  const playwright = await import("playwright");
-  const browser = await playwright.chromium.launch({ headless: true });
+  if (!canUsePlaywright()) {
+    throw new Error("Playwright no está habilitado en este entorno");
+  }
+
+  let playwright: typeof import("playwright");
+  try {
+    playwright = await import("playwright");
+  } catch {
+    throw new Error("No se pudo cargar Playwright");
+  }
+
+  let browser: Awaited<ReturnType<typeof playwright.chromium.launch>> | null = null;
+  try {
+    browser = await playwright.chromium.launch({ headless: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      /not available|Executable doesn't exist|browserType\.launch/i.test(msg)
+        ? "Instala Chromium para Playwright: npx playwright install chromium"
+        : msg,
+    );
+  }
+
   try {
     const context = await browser.newContext({
       userAgent: THEME_INSPECTOR_USER_AGENT,
@@ -70,8 +99,10 @@ async function collectWithBrowser(targetUrl: string): Promise<{
       return { inlineCss, cssHrefs };
     }, "/* inline-style */");
 
+    const safeHrefs = domData.cssHrefs.filter((href) => isUrlAllowedForServerFetch(href));
+
     const cssFromLinks = await Promise.all(
-      domData.cssHrefs.map(async (href) => {
+      safeHrefs.map(async (href) => {
         try {
           const res = await context.request.get(href, {
             timeout: 15_000,
@@ -88,10 +119,10 @@ async function collectWithBrowser(targetUrl: string): Promise<{
     return {
       html,
       inlineCss: [...domData.inlineCss, ...cssFromLinks.filter(Boolean)],
-      cssHrefs: domData.cssHrefs,
+      cssHrefs: safeHrefs,
     };
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
   }
 }
 
@@ -112,7 +143,18 @@ export async function collectCssFromPage(targetUrl: string): Promise<{
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (!/\(403\)/.test(msg)) throw err;
-    const browserCollected = await collectWithBrowser(targetUrl);
+    if (!canUsePlaywright()) {
+      throw new Error(
+        "El sitio bloqueó la descarga directa (403). En producción usa PUBLIC_ANALYZE_API_URL con el servicio analyzer.",
+      );
+    }
+    let browserCollected;
+    try {
+      browserCollected = await collectWithBrowser(targetUrl);
+    } catch (browserErr) {
+      const detail = browserErr instanceof Error ? browserErr.message : String(browserErr);
+      throw new Error(`El sitio bloqueó la descarga directa (403) y el fallback con navegador falló: ${detail}`);
+    }
     html = browserCollected.html;
     inlineCss = browserCollected.inlineCss;
     cssHrefs = browserCollected.cssHrefs;
@@ -142,15 +184,20 @@ export async function collectCssFromPage(targetUrl: string): Promise<{
       const href = $(el).attr("href");
       if (!href) return;
       try {
-        cssHrefs.push(new URL(href, targetUrl).toString());
+        const absolute = new URL(href, targetUrl).toString();
+        if (isUrlAllowedForServerFetch(absolute)) cssHrefs.push(absolute);
       } catch {
         // ignore invalid hrefs
       }
     });
   }
 
+  const hrefLimit = maxStylesheetFetches();
+  const limitedHrefs = cssHrefs.slice(0, hrefLimit);
+
   const externalCssTexts = await Promise.all(
-    cssHrefs.map(async (href) => {
+    limitedHrefs.map(async (href) => {
+      if (!isUrlAllowedForServerFetch(href)) return "";
       try {
         return await fetchText(href, { headers: { accept: "text/css,*/*;q=0.9" } });
       } catch {
@@ -170,6 +217,6 @@ export async function collectCssFromPage(targetUrl: string): Promise<{
     css: combinedCss,
     html,
     variables,
-    stylesheetCount: cssHrefs.length + (inlineCss.length > 0 ? 1 : 0),
+    stylesheetCount: limitedHrefs.length + (inlineCss.length > 0 ? 1 : 0),
   };
 }
