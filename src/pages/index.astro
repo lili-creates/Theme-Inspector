@@ -1,0 +1,274 @@
+---
+import "../styles/main.scss";
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Theme Inspector</title>
+
+    <style lang="scss">
+      :global(body) {
+        line-height: 1.45;
+      }
+
+      header {
+        padding: 40px 20px 20px;
+        max-width: 1100px;
+        margin: 0 auto;
+
+        h1 {
+          margin: 0;
+          font-size: clamp(28px, 2.4vw, 40px);
+          letter-spacing: -0.02em;
+        }
+      }
+
+      main {
+        padding: 0 20px 56px;
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        gap: 28px;
+      }
+
+      form {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: end;
+        padding: 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        backdrop-filter: blur(12px);
+
+        label {
+          grid-column: 1 / -1;
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.65);
+        }
+
+        input {
+          height: 44px;
+          padding: 0 14px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(0, 0, 0, 0.22);
+          color: rgba(255, 255, 255, 0.92);
+          outline: none;
+          transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+
+          &::placeholder {
+            color: rgba(255, 255, 255, 0.45);
+          }
+
+          &:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+          }
+
+          &:focus {
+            border-color: rgba(56, 189, 248, 0.55);
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.16);
+            background: rgba(0, 0, 0, 0.28);
+          }
+        }
+
+        button {
+          height: 44px;
+          padding: 0 16px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.08);
+          color: rgba(255, 255, 255, 0.92);
+          cursor: pointer;
+          transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease,
+            opacity 140ms ease;
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.22);
+            transform: translateY(-1px);
+          }
+
+          &:active {
+            transform: translateY(0);
+            opacity: 0.92;
+          }
+        }
+      }
+
+      .how-it-works {
+        h2 {
+          margin: 0 0 12px;
+          font-size: 16px;
+          letter-spacing: -0.01em;
+          color: rgba(255, 255, 255, 0.88);
+        }
+
+        .steps {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 14px;
+        }
+
+        .step {
+          border-radius: 16px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.10);
+          transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease,
+            opacity 160ms ease;
+
+          &:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.14);
+          }
+
+          .stepNumber {
+            display: block;
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: 0.02em;
+            color: rgba(255, 255, 255, 0.55);
+            margin-bottom: 10px;
+          }
+
+          h3 {
+            margin: 0 0 6px;
+            font-size: 14px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.92);
+          }
+
+          p {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.70);
+          }
+        }
+      }
+
+      // Responsive breakpoints (tablets/móviles)
+      @media (max-width: 900px) {
+        .how-it-works {
+          .steps {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+      }
+
+      @media (max-width: 520px) {
+        form {
+          grid-template-columns: 1fr;
+
+          button {
+            width: 100%;
+          }
+        }
+
+        .how-it-works {
+          .steps {
+            grid-template-columns: 1fr;
+          }
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="no-print">
+      <h1>Theme Inspector</h1>
+    </header>
+
+    <main>
+      <form id="analyze-form" class="no-print">
+        <label for="url">URL</label>
+        <input id="url" name="url" type="url" inputmode="url" placeholder="https://…" required />
+        <button id="analyze-submit" type="submit">Analizar</button>
+      </form>
+
+      <section class="how-it-works no-print" aria-labelledby="how-it-works-title">
+        <h2 id="how-it-works-title">Cómo funciona</h2>
+        <ol class="steps">
+          <li class="step">
+            <span class="stepNumber">01</span>
+            <h3>Introduce la URL</h3>
+            <p>Pega el sitio que quieres inspeccionar y confirma el análisis.</p>
+          </li>
+          <li class="step">
+            <span class="stepNumber">02</span>
+            <h3>Extracción Inteligente</h3>
+            <p>Detectamos tipografías, colores y patrones relevantes de la UI.</p>
+          </li>
+          <li class="step">
+            <span class="stepNumber">03</span>
+            <h3>Cálculo Heurístico</h3>
+            <p>Estimamos tokens y escalas coherentes para un sistema de diseño.</p>
+          </li>
+          <li class="step">
+            <span class="stepNumber">04</span>
+            <h3>Showcase &amp; Export</h3>
+            <p>Abre un estudio visual con variables, métricas CSS y exportación a PDF.</p>
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <script>
+      import { postAnalyze } from "../lib/client/analyzeClient";
+      import { persistReportCache } from "../lib/client/sessionCache";
+      import { ensureUrlProtocol } from "../lib/url";
+
+      const form = document.getElementById("analyze-form");
+      const input = document.getElementById("url");
+      const submit = document.getElementById("analyze-submit");
+      const defaultSubmitText = submit?.textContent || "Analizar";
+
+      const setLoadingState = (isLoading: boolean) => {
+        if (submit instanceof HTMLButtonElement) {
+          submit.disabled = isLoading;
+          submit.textContent = isLoading ? "Analizando..." : defaultSubmitText;
+        }
+        if (input instanceof HTMLInputElement) input.disabled = isLoading;
+      };
+
+      if (form) {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const raw = typeof input?.value === "string" ? input.value.trim() : "";
+          if (!raw) {
+            window.alert("Introduce una URL válida antes de analizar.");
+            return;
+          }
+
+          const url = ensureUrlProtocol(raw);
+          setLoadingState(true);
+
+          try {
+            const data = await postAnalyze(url);
+            const analyzedUrl = (data.url as string) || url;
+            persistReportCache(analyzedUrl, data);
+            window.location.href = `/results?url=${encodeURIComponent(analyzedUrl)}`;
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Fallo inesperado analizando la URL";
+            window.alert(`No se pudo analizar la URL: ${message}`);
+            setLoadingState(false);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

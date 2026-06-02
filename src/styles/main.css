@@ -1,0 +1,34 @@
+/* Global baseline */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+  background: radial-gradient(1200px 800px at 20% 10%, rgba(124, 58, 237, 0.2), transparent 55%), radial-gradient(900px 700px at 80% 0%, rgba(56, 189, 248, 0.18), transparent 50%), radial-gradient(1000px 700px at 50% 90%, rgba(16, 185, 129, 0.1), transparent 55%), #070A12;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}/*# sourceMappingURL=main.css.map */
